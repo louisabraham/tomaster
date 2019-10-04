@@ -39,66 +39,68 @@ The performance is good thanks to jit compilation with
 
 # API
 
-    def tomato(
-        points,
-        *,
-        k,
-        tau=None,
-        n_clusters=None,
-        relative_tau: bool = True,
-        keep_cluster_labels: bool = False,
-    ):
-        """ToMATo clustering
+``` python
+def tomato(
+    points,
+    *,
+    k,
+    tau=None,
+    n_clusters=None,
+    relative_tau: bool = True,
+    keep_cluster_labels: bool = False,
+):
+    """ToMATo clustering
+
+    Parameters
+    ----------
+
+    points : np.ndarray
+        Array of shape (n, dim)
+    k : int
+        Number of nearest neighbors to build the graph with
+    tau : float or None
+        Prominence threshold. Must not be specified if `n_clusters` is given.
+    relative_tau : bool
+        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.       
+    n_clusters : int or None
+        Target number of clusters. Must not be specified if `tau` is given.
+    keep_cluster_labels : bool
+        If False, converts the labels to make them contiguous and start from 0.
+
+    Returns
+    -------
+
+    clusters : np.ndarray
+        Array of shape (n,) containing the cluster indexes.
+    tau : float
+        Prominence threshold. Only present if `n_clusters` was given.
+
+    """
+
+def tomato_img(
+    img: np.ndarray, *, spatial_weight: float = 0, lab_space: bool = True, **kwargs
+):
+    """ToMATo for images
+
+    Parameters
+    ----------
+
+    img : np.ndarray
+        Image of shape (h, w) or (h, w, 3)
+    spatial_weight : float
+        Importance of the pixel positions in the distance function
+    lab_space : bool
+        If True, converts color images to the CIE L*a*b color space (<https://en.wikipedia.org/wiki/CIELAB_color_space>)
     
-        Parameters
-        ----------
-    
-        points : np.ndarray
-            Array of shape (n, dim)
-        k : int
-            Number of nearest neighbors to build the graph with
-        tau : float or None
-            Prominence threshold. Must not be specified if `n_clusters` is given.
-        relative_tau : bool
-            If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.       
-        n_clusters : int or None
-            Target number of clusters. Must not be specified if `tau` is given.
-        keep_cluster_labels : bool
-            If False, converts the labels to make them contiguous and start from 0.
-    
-        Returns
-        -------
-    
-        clusters : np.ndarray
-            Array of shape (n,) containing the cluster indexes.
-        tau : float
-            Prominence threshold. Only present if `n_clusters` was given.
-    
-        """
-    
-    def tomato_img(
-        img: np.ndarray, *, spatial_weight: float = 0, lab_space: bool = True, **kwargs
-    ):
-        """ToMATo for images
-    
-        Parameters
-        ----------
-    
-        img : np.ndarray
-            Image of shape (h, w) or (h, w, 3)
-        spatial_weight : float
-            Importance of the pixel positions in the distance function
-        lab_space : bool
-            If True, converts color images to the CIE L*a*b color space (<https://en.wikipedia.org/wiki/CIELAB_color_space>)
-        
-        see tomato() for other arguments.
-    
-        Returns
-        -------
-    
-        clusters : np.ndarray
-            Array of shape (h, w) containing the cluster indexes.
-        """
+    see tomato() for other arguments.
+
+    Returns
+    -------
+
+    clusters : np.ndarray
+        Array of shape (h, w) containing the cluster indexes.
+    """
+```
 
 # References
 
