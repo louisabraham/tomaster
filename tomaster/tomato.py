@@ -3,8 +3,6 @@ from functools import lru_cache
 import numpy as np
 from numba import njit
 from sklearn.neighbors import NearestNeighbors
-from skimage.color import rgb2lab
-from skimage.util import img_as_float
 
 njit = njit(cache=True)
 
@@ -191,6 +189,9 @@ def tomato_img(
     clusters : np.ndarray
         Array of shape (h, w) containing the cluster indexes.
     """
+    from skimage.color import rgb2lab
+    from skimage.util import img_as_float
+
     assert len(img.shape) in [2, 3]
     if len(img.shape) == 3:
         assert img.shape[2] in [1, 3]
