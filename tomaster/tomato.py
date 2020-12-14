@@ -67,9 +67,11 @@ def normalize_clusters(y):
 
 
 def tomato(
-    points,
     *,
-    k,
+    points=None,
+    k=None,
+    neighbors=None,
+    distances=None,
     tau=None,
     n_clusters=None,
     relative_tau: bool = True,
@@ -84,10 +86,14 @@ def tomato(
         Array of shape (n, dim)
     k : int
         Number of nearest neighbors to build the graph with
+    neighbors : np.ndarray
+        Array of shape (n, dim)
+    distances : np.ndarray
+        Array of shape (n, dim)
     tau : float or None
         Prominence threshold. Must not be specified if `n_clusters` is given.
     relative_tau : bool
-        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.       
+        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.
     n_clusters : int or None
         Target number of clusters. Must not be specified if `tau` is given.
     keep_cluster_labels : bool
@@ -108,7 +114,11 @@ def tomato(
     ) == 1, "You cannot give both `tau` and `n_clusters`"
     assert n_clusters is None or n_clusters > 0
 
-    distances, neighbors = NearestNeighbors(n_neighbors=k).fit(points).kneighbors()
+    assert (points is None) == (k is None)
+    assert (neighbors is None) == (distances is None)
+    assert (points is not None) or (neighbors is not None)
+    if neighbors is None:
+        distances, neighbors = NearestNeighbors(n_neighbors=k).fit(points).kneighbors()
     density = ((distances ** 2).mean(axis=-1) + 1e-10) ** -0.5
     pre = _tomato_pre(density, neighbors)
 
@@ -172,7 +182,7 @@ def tomato_img(
         Importance of the pixel positions in the distance function
     lab_space : bool
         If True, converts color images to the CIE L*a*b color space (<https://en.wikipedia.org/wiki/CIELAB_color_space>)
-    
+
     see tomato() for other arguments.
 
     Returns
@@ -197,8 +207,7 @@ def tomato_img(
     coords = np.indices(img.shape[:2], dtype=np.float32).reshape(2, -1).T
     coords *= spatial_weight
     points = np.concatenate((coords, img.reshape(-1, ndims)), 1)
-    ans = tomato(points, **kwargs)
+    ans = tomato(points=points, **kwargs)
     if isinstance(ans, tuple):
         ans = ans[0]
     return ans.reshape(img.shape[:2])
-

@@ -20,7 +20,7 @@ The performance is good thanks to jit compilation with
 >>> from tomaster import tomato
 >>> from sklearn import datasets
 >>> X, y = datasets.make_moons(n_samples=1000, noise=0.05, random_state=1337)
->>> clusters, _ = tomato(X, k=5, n_clusters=2)
+>>> clusters, _ = tomato(points=X, k=5, n_clusters=2)
 
 >>> import matplotlib.pyplot as plt
 >>> plt.scatter(*X.T, c=clusters)
@@ -41,9 +41,11 @@ The performance is good thanks to jit compilation with
 
 ``` python
 def tomato(
-    points,
     *,
-    k,
+    points=None,
+    k=None,
+    neighbors=None,
+    distances=None,
     tau=None,
     n_clusters=None,
     relative_tau: bool = True,
@@ -58,10 +60,14 @@ def tomato(
         Array of shape (n, dim)
     k : int
         Number of nearest neighbors to build the graph with
+    neighbors : np.ndarray
+        Array of shape (n, dim)
+    distances : np.ndarray
+        Array of shape (n, dim)
     tau : float or None
         Prominence threshold. Must not be specified if `n_clusters` is given.
     relative_tau : bool
-        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.       
+        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.
     n_clusters : int or None
         Target number of clusters. Must not be specified if `tau` is given.
     keep_cluster_labels : bool
