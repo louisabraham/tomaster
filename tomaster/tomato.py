@@ -1,7 +1,10 @@
 from functools import lru_cache
 
 import numpy as np
+
 from numba import njit
+from numba.typed import List
+
 from sklearn.neighbors import NearestNeighbors
 
 njit = njit(cache=True)
@@ -15,45 +18,64 @@ def _find(forest, i):
 
 
 @njit
-def _union(forest, a, b):
-    forest[_find(forest, b)] = forest[_find(forest, a)]
+def raw_tomato(density, neighbors):
+    """ToMATo clustering
 
+    Parameters
+    ----------
+    density : np.ndarray
+        array of n densities
+    neighbors : np.ndarray
+        array of shape (n, k) neighbors
 
-@njit
-def _tomato_pre(density, neighbors):
+    Returns
+    -------
+    edges : list of (float, int, int)
+        list of merge edges with persistences
+    """
+
     n = len(density)
-    forest = np.arange(n)
+    forest = np.empty(n, dtype=np.int64)
+
+    edges = List([(np.inf, i, i) for i in range(n)])
 
     ind = density.argsort()[::-1]
     order = ind.argsort()
 
     for i in ind:
+        forest[i] = i
+        for j in neighbors[i]:
+            if order[j] < order[forest[i]]:
+                forest[i] = j
+
+        if forest[i] == i:
+            continue
+        edges[i] = (0.0, i, forest[i])
+        ri = _find(forest, i)
+
         for j in neighbors[i]:
             if order[j] > order[i]:
                 continue
-            forest[i] = j
-
-    return forest, order, ind
+            rj = _find(forest, j)
+            if ri == rj:
+                continue
+            if order[ri] < order[rj]:
+                edges[rj] = (density[rj] - density[i], i, j)
+                forest[rj] = ri
+            else:
+                edges[ri] = (density[ri] - density[i], i, j)
+                forest[ri] = ri = rj
+    return edges
 
 
 @njit
-def _tomato(density, neighbors, tau, forest, order, ind):
-    forest = forest.copy()
-
-    for i in ind:
-        if neighbors.shape[1] == 1 or tau == 0:
-            continue
-        for j in neighbors[i]:
-            if order[j] > order[i]:
-                continue
-            ri, rj = _find(forest, i), _find(forest, j)
-            if ri != rj and min(density[ri], density[rj]) < density[i] + tau:
-                if order[ri] < order[rj]:
-                    _union(forest, ri, rj)
-                else:
-                    _union(forest, rj, ri)
-
-    for i in range(len(density)):
+def _clusters(edges, tau: float):
+    n = len(edges)
+    forest = np.arange(n)
+    for p, a, b in edges:
+        if p <= tau:
+            forest[_find(forest, a)] = _find(forest, b)
+    for i in range(n):
         _find(forest, i)
     return forest
 
@@ -64,18 +86,46 @@ def normalize_clusters(y):
     return order[inverse]
 
 
+def clusters(edges, tau: float, keep_cluster_labels: bool = False):
+    """Compute clusters from the output of raw_tomato
+
+    Parameters
+    ----------
+    edges
+        output of raw_tomato
+    tau : float
+        persistence gap
+    keep_cluster_labels : bool
+        if False, converts the labels to make them contiguous and start from 0
+
+    Returns
+    -------
+    clusters : np.ndarray
+        cluster identifiers
+    """
+    forest = _clusters(edges, tau)
+    if not keep_cluster_labels:
+        forest = normalize_clusters(forest)
+    return forest
+
+
 def tomato(
     *,
     points=None,
     k=None,
     neighbors=None,
     distances=None,
+    density=None,
+    metric="l2",
+    bandwidth=None,
+    raw: bool = False,
     tau=None,
     n_clusters=None,
-    relative_tau: bool = True,
     keep_cluster_labels: bool = False,
 ):
     """ToMATo clustering
+
+    You can call this function with a lot of different signatures as it tries to build the missing parameters from the others.
 
     Parameters
     ----------
@@ -85,85 +135,94 @@ def tomato(
     k : int
         Number of nearest neighbors to build the graph with
     neighbors : np.ndarray
-        Array of shape (n, dim)
+        Array of shape (n, k)
     distances : np.ndarray
-        Array of shape (n, dim)
-    tau : float or None
-        Prominence threshold. Must not be specified if `n_clusters` is given.
-    relative_tau : bool
-        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.
-    n_clusters : int or None
-        Target number of clusters. Must not be specified if `tau` is given.
+        Array of shape (n, k)
+    density : np.ndarray
+        Array of shape (n,)
+    metric: str
+        "l2" or "cosine"
+
+    raw : bool
+        if True, returns the merge edges
+
+    tau : float
+        Prominence threshold.
+    n_clusters : int
+        Target number of clusters.
+
     keep_cluster_labels : bool
         If False, converts the labels to make them contiguous and start from 0.
 
     Returns
     -------
-
     clusters : np.ndarray
-        Array of shape (n,) containing the cluster indexes.
-    tau : float
-        Prominence threshold. Only present if `n_clusters` was given.
-
+        if raw is False (default), array of shape (n,) containing the cluster indices
+    edges : list
+        if raw is True, spanning tree as list of (persistence, point1, point2)
     """
 
-    assert [tau, n_clusters].count(
-        None
-    ) == 1, "You cannot give both `tau` and `n_clusters`"
-    assert n_clusters is None or n_clusters > 0
+    assert metric in {"l2", "cosine"}
 
-    assert (points is None) == (k is None)
-    assert (neighbors is None) == (distances is None)
-    assert (points is not None) or (neighbors is not None)
-    if neighbors is None:
-        distances, neighbors = NearestNeighbors(n_neighbors=k).fit(points).kneighbors()
-    density = ((distances ** 2).mean(axis=-1) + 1e-10) ** -0.5
-    pre = _tomato_pre(density, neighbors)
+    def _points():
+        assert points is not None
 
-    if tau is not None:
-        if relative_tau:
-            tau *= density.std()
-        ans = _tomato(density, neighbors, tau, *pre)
+    def _neighbors():
+        nonlocal distances, neighbors
+        if neighbors is None:
+            _points()
+            assert k is not None
+            distances, neighbors = (
+                NearestNeighbors(n_neighbors=k).fit(points).kneighbors()
+            )
+
+    def _distances():
+        nonlocal distances
+        if distances is None:
+            _points()
+            _neighbors()
+            if metric == "l2":
+                a = points[:, None, :]
+                b = points[neighbors.flatten()].reshape(*neighbors.shape, -1)
+                distances = np.sqrt(np.sum((a - b) ** 2, -1))
+            elif metric == "cosine":
+                p = points / np.linalg.norm(points, axis=-1)
+                a = p[:, None, :]
+                b = p[neighbors.flatten()].reshape(*neighbors.shape, -1)
+                distances = 1 - np.sum(a * b, axis=-1)
+
+    def _density():
+        nonlocal density
+        if density is None:
+            _distances()
+            if metric == "l2":
+                if bandwidth is None:
+                    density = ((distances ** 2).mean(axis=-1) + 1e-10) ** -0.5
+                else:
+                    density = np.exp(-((distances / bandwidth) ** 2)).sum(axis=-1)
+            elif metric == "cosine":
+                assert bandwidth is not None, "bandwidth must be specified"
+                assert bandwidth > 0
+                density = np.exp(-((np.arccos(1 - distances) / bandwidth) ** 2)).sum(
+                    axis=-1
+                )
+
+    _density()
+    _neighbors()
+
+    edges = raw_tomato(density, neighbors)
+
+    if raw:
+        return edges
+    elif tau is not None:
+        assert n_clusters is None
+        return clusters(edges, tau, keep_cluster_labels)
     else:
-
-        @lru_cache(1)
-        def aux1(tau):
-            return _tomato(density, neighbors, np.float32(tau), *pre)
-
-        def aux2(tau):
-            return len(np.unique(aux1(tau)))
-
-        if aux2(0) < n_clusters:
-            # error
-            tau = -1
-            ans = aux1(0)
-        else:
-            a = 0
-            b = density.max() - density.min() + 1
-
-            if aux2(b) > n_clusters:
-                # error
-                tau = -1
-                ans = aux1(b)
-            else:
-                # binary search
-                while aux2((a + b) / 2) != n_clusters:
-                    print(a, b, aux2((a + b) / 2))
-                    if aux2((a + b) / 2) > n_clusters:
-                        a = (a + b) / 2
-                    else:
-                        b = (a + b) / 2
-
-            tau = (a + b) / 2
-            ans = aux1(tau)
-
-    if not keep_cluster_labels:
-        ans = normalize_clusters(ans)
-
-    if n_clusters is None:
-        return ans
-    else:
-        return ans, tau
+        sp = sorted((p for p, _, _ in edges), reverse=True)
+        if n_clusters is None:
+            n_clusters = max(range(2, len(sp)), key=lambda i: sp[i - 1] - sp[i])
+        tau = sp[n_clusters]
+        return clusters(edges, tau, keep_cluster_labels)
 
 
 def tomato_img(
@@ -212,3 +271,4 @@ def tomato_img(
     if isinstance(ans, tuple):
         ans = ans[0]
     return ans.reshape(img.shape[:2])
+

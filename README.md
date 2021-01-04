@@ -46,12 +46,17 @@ def tomato(
     k=None,
     neighbors=None,
     distances=None,
+    density=None,
+    metric="l2",
+    bandwidth=None,
+    raw: bool = False,
     tau=None,
     n_clusters=None,
-    relative_tau: bool = True,
     keep_cluster_labels: bool = False,
 ):
     """ToMATo clustering
+
+    You can call this function with a lot of different signatures as it tries to build the missing parameters from the others.
 
     Parameters
     ----------
@@ -61,26 +66,31 @@ def tomato(
     k : int
         Number of nearest neighbors to build the graph with
     neighbors : np.ndarray
-        Array of shape (n, dim)
+        Array of shape (n, k)
     distances : np.ndarray
-        Array of shape (n, dim)
-    tau : float or None
-        Prominence threshold. Must not be specified if `n_clusters` is given.
-    relative_tau : bool
-        If `relative_tau` is set to `True`, `tau` will be multiplied by the standard deviation of the densities, making easier to have a unique value of `tau` for multiple datasets.
-    n_clusters : int or None
-        Target number of clusters. Must not be specified if `tau` is given.
+        Array of shape (n, k)
+    density : np.ndarray
+        Array of shape (n,)
+    metric: str
+        "l2" or "cosine"
+
+    raw : bool
+        if True, returns the merge edges
+
+    tau : float
+        Prominence threshold.
+    n_clusters : int
+        Target number of clusters.
+
     keep_cluster_labels : bool
         If False, converts the labels to make them contiguous and start from 0.
 
     Returns
     -------
-
     clusters : np.ndarray
-        Array of shape (n,) containing the cluster indexes.
-    tau : float
-        Prominence threshold. Only present if `n_clusters` was given.
-
+        if raw is False (default), array of shape (n,) containing the cluster indices
+    edges : list
+        if raw is True, spanning tree as list of (persistence, point1, point2)
     """
 
 def tomato_img(
