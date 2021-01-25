@@ -13,6 +13,6 @@ clean:
 	-rm -rf __pycache__ *.egg-info build dist .pytest_cache
 
 test:
-	pytest
+	python -m pytest
 
 .PHONY: pypi dist flake8 clean test

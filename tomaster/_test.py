@@ -2,7 +2,12 @@ import numpy as np
 from sklearn import datasets
 
 from tomaster import tomato, tomato_img
-from tomaster.tomato import normalize_clusters
+
+
+def normalize_clusters(y):
+    _, index, inverse = np.unique(y, return_index=True, return_inverse=True)
+    order = np.argsort(np.argsort(index))
+    return order[inverse]
 
 
 def clusters_equal(a, b):

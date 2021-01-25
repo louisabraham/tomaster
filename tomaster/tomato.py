@@ -1,9 +1,7 @@
-from functools import lru_cache
-
 import numpy as np
 
 from numba import njit
-from numba.typed import List
+from numba.typed import List, Dict
 
 from sklearn.neighbors import NearestNeighbors
 
@@ -37,7 +35,9 @@ def raw_tomato(density, neighbors):
     n = len(density)
     forest = np.empty(n, dtype=np.int64)
 
-    edges = List([(np.inf, i, i) for i in range(n)])
+    edges = List()
+    for i in range(n):
+        edges.append((np.inf, i, i))
 
     ind = density.argsort()[::-1]
     order = ind.argsort()
@@ -69,23 +69,6 @@ def raw_tomato(density, neighbors):
 
 
 @njit
-def _clusters(edges, tau: float):
-    n = len(edges)
-    forest = np.arange(n)
-    for p, a, b in edges:
-        if p <= tau:
-            forest[_find(forest, a)] = _find(forest, b)
-    for i in range(n):
-        _find(forest, i)
-    return forest
-
-
-def normalize_clusters(y):
-    _, index, inverse = np.unique(y, return_index=True, return_inverse=True)
-    order = np.argsort(np.argsort(index))
-    return order[inverse]
-
-
 def clusters(edges, tau: float, keep_cluster_labels: bool = False):
     """Compute clusters from the output of raw_tomato
 
@@ -103,9 +86,25 @@ def clusters(edges, tau: float, keep_cluster_labels: bool = False):
     clusters : np.ndarray
         cluster identifiers
     """
-    forest = _clusters(edges, tau)
+    n = len(edges)
+    forest = np.arange(n)
+    for p, a, b in edges:
+        if p <= tau:
+            forest[_find(forest, a)] = _find(forest, b)
+    for i in range(n):
+        _find(forest, i)
+
     if not keep_cluster_labels:
-        forest = normalize_clusters(forest)
+        d = Dict.empty(
+            key_type=np.int64,
+            value_type=np.int64,
+        )
+
+        for x in forest:
+            if x not in d:
+                d[x] = len(d)
+        for i in range(n):
+            forest[i] = d[forest[i]]
     return forest
 
 
@@ -147,7 +146,7 @@ def tomato(
         if True, returns the merge edges
 
     tau : float
-        Prominence threshold.
+        Prominence threshold. If not specified, automatically selects the largest persistence gap.
     n_clusters : int
         Target number of clusters.
 
@@ -209,7 +208,6 @@ def tomato(
 
     _density()
     _neighbors()
-
     edges = raw_tomato(density, neighbors)
 
     if raw:

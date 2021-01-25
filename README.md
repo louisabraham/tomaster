@@ -20,7 +20,7 @@ The performance is good thanks to jit compilation with
 >>> from tomaster import tomato
 >>> from sklearn import datasets
 >>> X, y = datasets.make_moons(n_samples=1000, noise=0.05, random_state=1337)
->>> clusters, _ = tomato(points=X, k=5, n_clusters=2)
+>>> clusters = tomato(points=X, k=5, n_clusters=2)
 
 >>> import matplotlib.pyplot as plt
 >>> plt.scatter(*X.T, c=clusters)
@@ -78,7 +78,7 @@ def tomato(
         if True, returns the merge edges
 
     tau : float
-        Prominence threshold.
+        Prominence threshold. If not specified, automatically selects the largest persistence gap.
     n_clusters : int
         Target number of clusters.
 
@@ -92,6 +92,7 @@ def tomato(
     edges : list
         if raw is True, spanning tree as list of (persistence, point1, point2)
     """
+
 
 def tomato_img(
     img: np.ndarray, *, spatial_weight: float = 0, lab_space: bool = True, **kwargs
@@ -107,7 +108,7 @@ def tomato_img(
         Importance of the pixel positions in the distance function
     lab_space : bool
         If True, converts color images to the CIE L*a*b color space (<https://en.wikipedia.org/wiki/CIELAB_color_space>)
-    
+
     see tomato() for other arguments.
 
     Returns
