@@ -208,6 +208,8 @@ def tomato(
 
     _density()
     _neighbors()
+    assert neighbors.max() < len(density), "Neighbor indices are larger than n"
+
     edges = raw_tomato(density, neighbors)
 
     if raw:
