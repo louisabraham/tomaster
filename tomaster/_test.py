@@ -1,7 +1,7 @@
 import numpy as np
 from sklearn import datasets
 
-from tomaster import tomato, tomato_img
+from tomaster import tomato
 
 
 def normalize_clusters(y):
@@ -30,4 +30,3 @@ def test_blobs():
     X, y = datasets.make_blobs(n_samples=1000, random_state=42)
     clusters = tomato(points=X, k=5, n_clusters=3)
     assert clusters_equal(y, clusters)
-

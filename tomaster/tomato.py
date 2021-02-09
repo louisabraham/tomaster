@@ -124,7 +124,8 @@ def tomato(
 ):
     """ToMATo clustering
 
-    You can call this function with a lot of different signatures as it tries to build the missing parameters from the others.
+    You can call this function with a lot of different signatures
+    as it tries tobuild the missing parameters from the others.
 
     Parameters
     ----------
@@ -146,7 +147,8 @@ def tomato(
         if True, returns the merge edges
 
     tau : float
-        Prominence threshold. If not specified, automatically selects the largest persistence gap.
+        Prominence threshold.
+        If not specified, automaticallyselects the largest persistence gap.
     n_clusters : int
         Target number of clusters.
 
@@ -238,7 +240,8 @@ def tomato_img(
     spatial_weight : float
         Importance of the pixel positions in the distance function
     lab_space : bool
-        If True, converts color images to the CIE L*a*b color space (<https://en.wikipedia.org/wiki/CIELAB_color_space>)
+        If True, converts color images to the CIE L*a*b color space
+        (<https://en.wikipedia.org/wiki/CIELAB_color_space>)
 
     see tomato() for other arguments.
 
@@ -271,4 +274,3 @@ def tomato_img(
     if isinstance(ans, tuple):
         ans = ans[0]
     return ans.reshape(img.shape[:2])
-
