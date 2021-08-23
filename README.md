@@ -20,7 +20,7 @@ The performance is good thanks to jit compilation with
 >>> from tomaster import tomato
 >>> from sklearn import datasets
 >>> X, y = datasets.make_moons(n_samples=1000, noise=0.05, random_state=1337)
->>> clusters = tomato(points=X, k=5, n_clusters=2)
+>>> clusters = tomato(points=X, k=5)
 
 >>> import matplotlib.pyplot as plt
 >>> plt.scatter(*X.T, c=clusters)
